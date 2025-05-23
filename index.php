@@ -1,188 +1,183 @@
-<?php
-// セッション開始 (認証システム用)
-session_start();
-
-// 共通ヘッダーの読み込み
-require_once __DIR__ . '/includes/header.php';
-
-// 共通関数の読み込み
-require_once __DIR__ . '/includes/functions.php';
-
-// データベース接続とモデルの読み込み (今日の売上データ取得用)
-require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/models/Sale.php';
-
-// 本日の売上データを取得
-$database = new Database();
-$db = $database->getConnection();
-$saleModel = new Sale($db);
-
-$today = date('Y-m-d');
-$todaySales = $saleModel->getByDateRange($today . ' 00:00:00', $today . ' 23:59:59');
-
-// 売上集計
-$totalSales = array_sum(array_column($todaySales, 'total_amount'));
-$transactionCount = count($todaySales);
-$avgTransaction = $transactionCount > 0 ? $totalSales / $transactionCount : 0;
-?>
-
-<div class="container mx-auto px-4 py-8">
-    <div class="flex flex-col md:flex-row gap-6">
-        <!-- 左カラム：計算機UI -->
-        <div class="w-full md:w-1/2 lg:w-2/5">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-2xl font-bold mb-4">YSEレジシステム</h2>
-                <?php include 'views/pos/calculator.php'; ?>
-            </div>
-        </div>
-        
-        <!-- 右カラム：売上情報 -->
-        <div class="w-full md:w-1/2 lg:w-3/5">
-            <div class="bg-white rounded-lg shadow-lg p-6">
-                <h2 class="text-2xl font-bold mb-4">本日の売上</h2>
-                <div id="today-sales-container">
-                    <div class="stats grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                        <div class="stat bg-blue-100 p-4 rounded">
-                            <div class="stat-title text-sm text-gray-600">総売上</div>
-                            <div class="stat-value text-xl font-bold" id="total-sales"><?php echo formatCurrency($totalSales); ?></div>
-                        </div>
-                        <div class="stat bg-green-100 p-4 rounded">
-                            <div class="stat-title text-sm text-gray-600">取引数</div>
-                            <div class="stat-value text-xl font-bold" id="transaction-count"><?php echo $transactionCount; ?></div>
-                        </div>
-                        <div class="stat bg-purple-100 p-4 rounded">
-                            <div class="stat-title text-sm text-gray-600">平均取引額</div>
-                            <div class="stat-value text-xl font-bold" id="average-transaction"><?php echo formatCurrency($avgTransaction); ?></div>
-                        </div>
-                    </div>
-                    
-                    <h3 class="text-lg font-bold mb-2">最近の取引</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white">
-                            <thead>
-                                <tr>
-                                    <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600">ID</th>
-                                    <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600">時間</th>
-                                    <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600">金額</th>
-                                    <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="recent-sales">
-                                <?php if (count($todaySales) > 0): ?>
-                                    <?php foreach (array_slice($todaySales, 0, 10) as $sale): ?>
-                                        <tr>
-                                            <td class="py-2 px-4 border-b border-gray-200"><?php echo $sale['id']; ?></td>
-                                            <td class="py-2 px-4 border-b border-gray-200"><?php echo date('H:i', strtotime($sale['sale_date'])); ?></td>
-                                            <td class="py-2 px-4 border-b border-gray-200"><?php echo formatCurrency($sale['total_amount']); ?></td>
-                                            <td class="py-2 px-4 border-b border-gray-200">
-                                                <button class="view-details bg-blue-500 hover:bg-blue-700 text-white text-xs py-1 px-2 rounded" data-id="<?php echo $sale['id']; ?>">詳細</button>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    <tr>
-                                        <td colspan="4" class="py-4 px-4 text-center text-gray-500">本日の取引はまだありません</td>
-                                    </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YSEレジシステム</title>
+  <link rel="stylesheet" href="css/style_input.css">
+  <!-- QuaggaJS CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+</head>
+<body>
+  <!-- ヘッダーナビゲーション -->
+  <header class="header">
+    <div class="header-content">
+      <h1 class="logo">YSE レジシステム</h1>
+      <nav class="nav">
+        <a href="index.php" class="nav-link active">レジ</a>
+        <a href="sales.php" class="nav-link">売上履歴</a>
+      </nav>
     </div>
-</div>
+  </header>
 
-<!-- 売上データ取得用スクリプト -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // 今日の売上データを取得
-    fetchTodaySales();
-    
-    // 30秒ごとに更新
-    setInterval(fetchTodaySales, 30000);
-});
+  <main class="main-content">
+    <div class="register-container">
+      <!-- 左側: レジ操作 -->
+      <div class="register-panel">
+        <div class="calculator-card">
+          <div class="display-container">
+            <div class="calculation-display" id="calculationDisplay">0</div>
+            <div class="result-display" id="resultDisplay">0</div>
+          </div>
+          
+          <div class="buttons">
+            <!-- 数字ボタン -->
+            <button onclick="appendNumber(7)" class="btn btn-number">7</button>
+            <button onclick="appendNumber(8)" class="btn btn-number">8</button>
+            <button onclick="appendNumber(9)" class="btn btn-number">9</button>
+            <button class="btn btn-danger" onclick="clearDisplay()">AC</button>
 
-function fetchTodaySales() {
-    fetch('/pos/controllers/SaleController.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            action: 'getSales'
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            updateSalesDisplay(data.sales);
-        } else {
-            console.error('Error fetching sales:', data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });
-}
+            <button onclick="appendNumber(4)" class="btn btn-number">4</button>
+            <button onclick="appendNumber(5)" class="btn btn-number">5</button>
+            <button onclick="appendNumber(6)" class="btn btn-number">6</button>
+            <button class="btn btn-operator" onclick="add()">＋</button>
 
-function updateSalesDisplay(sales) {
-    // 今日の日付のデータのみをフィルタリング
-    const today = new Date().toISOString().split('T')[0];
-    const todaySales = sales.filter(sale => sale.sale_date.startsWith(today));
-    
-    // 総売上を計算
-    const totalSales = todaySales.reduce((sum, sale) => sum + parseFloat(sale.total_amount), 0);
-    document.getElementById('total-sales').textContent = `¥${totalSales.toLocaleString()}`;
-    
-    // 取引数
-    document.getElementById('transaction-count').textContent = todaySales.length;
-    
-    // 平均取引額
-    const avgTransaction = todaySales.length > 0 ? totalSales / todaySales.length : 0;
-    document.getElementById('average-transaction').textContent = `¥${avgTransaction.toLocaleString()}`;
-    
-    // 最近の取引テーブルを更新
-    const recentSalesElement = document.getElementById('recent-sales');
-    recentSalesElement.innerHTML = '';
-    
-    // 最新10件を表示
-    const recentSales = todaySales.slice(0, 10);
-    
-    recentSales.forEach(sale => {
-        const row = document.createElement('tr');
-        
-        // 日時のフォーマット
-        const saleDate = new Date(sale.sale_date);
-        const formattedTime = saleDate.toLocaleTimeString('ja-JP', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        row.innerHTML = `
-            <td class="py-2 px-4 border-b border-gray-200">${sale.id}</td>
-            <td class="py-2 px-4 border-b border-gray-200">${formattedTime}</td>
-            <td class="py-2 px-4 border-b border-gray-200">¥${parseFloat(sale.total_amount).toLocaleString()}</td>
-            <td class="py-2 px-4 border-b border-gray-200">
-                <button class="view-details bg-blue-500 hover:bg-blue-700 text-white text-xs py-1 px-2 rounded" data-id="${sale.id}">詳細</button>
-            </td>
-        `;
-        
-        recentSalesElement.appendChild(row);
-    });
-    
-    // 詳細ボタンにイベントリスナーを追加
-    document.querySelectorAll('.view-details').forEach(button => {
-        button.addEventListener('click', () => {
-            const saleId = button.getAttribute('data-id');
-            // 詳細表示処理（モーダルウィンドウなど）
-            alert(`売上ID: ${saleId} の詳細表示機能は実装予定です`);
-        });
-    });
-}
-</script>
+            <button onclick="appendNumber(1)" class="btn btn-number">1</button>
+            <button onclick="appendNumber(2)" class="btn btn-number">2</button>
+            <button onclick="appendNumber(3)" class="btn btn-number">3</button>
+            <button class="btn btn-operator" onclick="multiply()">×</button>
 
-<?php
-// 共通フッターの読み込み
-require_once __DIR__ . '/includes/footer.php';
-?>
+            <button onclick="appendNumber(0)" class="btn btn-number">0</button>
+            <button onclick="appendDoubleZero()" class="btn btn-number">00</button>
+            <button class="btn btn-calculate" onclick="calculate()">＝</button>
+            <button class="btn btn-primary" onclick="addToCart()">計上</button>
+
+            <button class="btn btn-barcode" onclick="openBarcodeScanner()">📷 バーコード</button>
+            <button class="btn btn-secondary" onclick="location.href='sales.php'">売上確認</button>
+            <button class="btn btn-success wide" onclick="finalRegister()">最終計上</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側: 商品登録テーブル -->
+      <div class="cart-panel">
+        <div class="cart-card">
+          <div class="cart-header">
+            <h3>商品登録</h3>
+            <span class="item-count" id="itemCount">0 件</span>
+          </div>
+          
+          <div class="cart-table-container">
+            <table class="cart-table" id="cartTable">
+              <thead>
+                <tr>
+                  <th>JANコード</th>
+                  <th>金額</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="cartTableBody">
+                <tr class="empty-row">
+                  <td colspan="3" class="empty-message">
+                    商品を追加してください
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>小計:</span>
+              <span id="subtotal">¥0</span>
+            </div>
+            <div class="summary-row">
+              <span>消費税 (10%):</span>
+              <span id="tax">¥0</span>
+            </div>
+            <div class="summary-row total">
+              <span>合計:</span>
+              <span id="total">¥0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 隠しフォーム -->
+  <form id="registerForm" action="register.php" method="POST" style="display: none;">
+    <input type="hidden" name="amount" id="registerAmount">
+  </form>
+
+  <!-- バーコードスキャナーモーダル -->
+  <div id="barcodeModal" class="modal">
+    <div class="modal-content barcode-modal">
+      <div class="modal-header">
+        <h4>📷 バーコードスキャン</h4>
+        <span class="close" onclick="closeBarcodeScanner()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div id="scanner-container">
+          <div id="scanner"></div>
+          <div class="scanner-overlay">
+            <div class="scanner-line"></div>
+          </div>
+        </div>
+        <div class="scanner-status">
+          <p id="scanner-status-text">カメラを商品のバーコードに向けてください</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品登録モーダル -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4>商品登録</h4>
+        <span class="close" onclick="closeProductModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="scannedJan">JANコード:</label>
+          <input type="text" id="scannedJan" readonly>
+        </div>
+        <div class="form-group">
+          <label for="productName">商品名:</label>
+          <input type="text" id="productName" placeholder="商品名を入力してください">
+        </div>
+        <div class="form-group">
+          <label for="productPrice">価格 (円):</label>
+          <input type="number" id="productPrice" placeholder="価格を入力してください" min="1">
+        </div>
+        <div class="product-status" id="productStatus"></div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeProductModal()" class="btn btn-secondary">キャンセル</button>
+        <button onclick="addScannedProduct()" class="btn btn-primary">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4>金額編集</h4>
+        <span class="close" onclick="closeEditModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <label for="editAmount">金額:</label>
+        <input type="number" id="editAmount" placeholder="金額を入力">
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeEditModal()" class="btn btn-secondary">キャンセル</button>
+        <button onclick="updateItem()" class="btn btn-primary">更新</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

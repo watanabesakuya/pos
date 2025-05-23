@@ -1,0 +1,131 @@
+/* テーブル全体 */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* テーブルヘッダー */
+thead {
+  background-color: #00bcd4;
+  color: white;
+}
+
+thead th {
+  padding: 14px 12px;
+  font-weight: bold;
+  text-align: center;
+  font-size: 16px;
+}
+
+/* テーブルボディ */
+tbody td {
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 15px;
+  color: #34495e;
+}
+
+/* 行のホバー */
+tbody tr:hover {
+  background-color: #eef6fb;
+  transition: background-color 0.3s ease;
+}
+
+/* 偶数行の背景色 */
+tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+/* 🔍 検索フォームのレイアウト */
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 24px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+}
+
+.filter-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #34495e;
+  margin-bottom: 4px;
+}
+
+.filter-group input {
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+
+/* 🔘 ボタンラップ */
+.filter-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* 🔘 検索ボタン */
+.filter-buttons button {
+  background-color: #00bcd4;
+  color: white;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.filter-buttons button:hover {
+  background-color: #0097a7;
+}
+
+/* 🔘 リセットボタン */
+.reset-button {
+  background-color: #ccc;
+  color: #333;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  text-decoration: none;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.reset-button:hover {
+  background-color: #999;
+}
+
+/* ⬅ 戻るボタン */
+.back-button {
+  display: inline-block;
+  margin-top: 28px;
+  background-color: #00bcd4;
+  color: #fff;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: bold;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: #0097a7;
+}
